@@ -1,20 +1,49 @@
-%{    
-     #include "y.tab.h"    
-     int countn=0;       /* for keeping track of the line number */
+%{
+#define ID 1
+#define NUM 2
+#define ELSE  3
+#define	IF 4
+#define INT 5
+#define	RETURN 6
+#define VOID 7
+#define	WHILE 8
+#define LE 9
+#define GE 9
+#define EQ 9
+#define NE 9
+#define GT 9
+#define LT 9
+#define ASSIGN 9
+#define ADD 10
+#define SUBTRACT 10
+#define DIVIDE 10
+#define MULTIPLY 10
+#define SEMI 10
+#define COMMA 11
+#define LPAREN 12
+#define RPAREN 13
+#define LBRACKET 14
+#define RBRACKET 15
+#define LBRACE 16
+#define RBRACE 17
+#define ERROR 18
+int countn=0;       /* for keeping track of the line number */
 %}
 
 %option yylineno
-letter          [a-zA-Z]
+letter         [a-zA-Z]
 digit          [0-9]
+mlcomment      "/*" [^*] ~"*/" | "/*" "*"+ "/"
+slcomment      "//"[^\n\r]*
 
 %%
 
-"int"               { return int; }
-"void"              { return void; }
-"return"            { return return; }
-"if"	            { return if; }
-"else"	            { return else; }
-"while"             { return while; }
+"int"               { return INT; }
+"void"              { return VOID; }
+"return"            { return RETURN; }
+"if"	            { return IF; }
+"else"	            { return ELSE; }
+"while"             { return WHILE; }
 [-]?{digit}+        { return NUM; }
 {letter}+           { return ID; }
 "<="                { return LE; }
