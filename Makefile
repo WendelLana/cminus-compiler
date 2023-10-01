@@ -27,18 +27,18 @@ TARGET = parser
 
 # Build rule
 $(TARGET): $(PARSER) $(LEXER)
-    $(CC) $(CFLAGS) $(CSRCS) -o $(BUILD_PATH)/$(TARGET)
+	$(CC) $(CFLAGS) $(CSRCS) -o $(BUILD_PATH)/$(TARGET)
 
 $(PARSER): $(LEXER)
-    $(PARSER) $(PARSER_FLAGS) $(PARSER_SRCS)
+	$(PARSER) $(PARSER_FLAGS) $(PARSER_SRCS)
 
 # Lexer rule
 $(LEXER):
-    $(LEXER) $(LEXER_FLAGS) $(LEXER_SRCS)
+	$(LEXER) $(LEXER_FLAGS) $(LEXER_SRCS)
 
 # Clean rule
 clean:
-    rm y.* lex.yy.c $(BUILD_PATH)/* 
+	rm y.* lex.yy.c $(BUILD_PATH)/* 
 
 # Phony targets
 .PHONY: all clean
