@@ -101,7 +101,7 @@ whitespace     [\t\v\f\r\s ]+
 {whitespace}        {}
 {mlcomment}         {}
 {incmpltcomment}    { attribute_t attr; add_to_table("/*", ERROR, attr); }
-{slcomment}         {}
+{slcomment}         { attribute_t attr; add_to_table("//", ERROR, attr); }
 [\n]                { countn++; }
 .	                { attribute_t attr; add_to_table(yytext, ERROR, attr); }
 
