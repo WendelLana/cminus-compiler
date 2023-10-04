@@ -77,7 +77,7 @@ whitespace     [\t\v\f\r\s ]+
 "if"	            { attribute_t attr; add_to_table(yytext, IF, attr); }
 "else"	            { attribute_t attr; add_to_table(yytext, ELSE, attr); }
 "while"             { attribute_t attr; add_to_table(yytext, WHILE, attr); }
-[-]?{digit}+        { attribute_t attr; attr.table_offset = table_offset; add_to_table(yytext, NUM, attr); }
+{digit}+            { attribute_t attr; attr.table_offset = table_offset; add_to_table(yytext, NUM, attr); }
 {letter}+           { attribute_t attr; attr.table_offset = table_offset; add_to_table(yytext, ID, attr); }
 "<="                { attribute_t attr; attr.relop = LE; add_to_table(yytext, RELOP, attr); }
 ">="                { attribute_t attr; attr.relop = GE; add_to_table(yytext, RELOP, attr); }
