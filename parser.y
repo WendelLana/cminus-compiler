@@ -29,7 +29,7 @@ int main()
     free_table();
 }
 
-const char* getToken(enum token_t token) 
+const char* tokenTypeToString(token_t token) 
 {
    switch (token) 
    {
@@ -64,7 +64,7 @@ void print_table()
     table_entry_t* entry = table.entry;
     while(entry != NULL)
     {
-        printf(" %s\t%s\t", entry->lexeme, getToken(entry->token_type));
+        printf(" %s\t%s\t", entry->lexeme, tokenTypeToString(entry->token_type));
         if(entry->token_type == RELOP) {
             printf("%u\t", entry->attribute.relop);
         }
