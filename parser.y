@@ -54,6 +54,24 @@ const char* tokenTypeToString(token_t token)
    }
 }
 
+const char* relopAttrToString(relop_attribute_t relop)
+{
+    switch (relop) 
+   {
+      case LT: return "LT";
+      case LE: return "LE";
+      case EQ: return "EQ";
+      case NE: return "NE";
+      case GT: return "GT";
+      case GE: return "GE";
+      case ASSIGN: return "ASSIGN";
+      case ADD: return "ADD";
+      case SUBTRACT: return "SUBTRACT";
+      case MULTIPLY: return "MULTIPLY";
+      case DIVIDE: return "DIVIDE";
+   }
+}
+
 void print_table()
 {
     printf("\n\n");
@@ -66,7 +84,7 @@ void print_table()
     {
         printf(" %s\t%s\t", entry->lexeme, tokenTypeToString(entry->token_type));
         if(entry->token_type == RELOP) {
-            printf("%u\t", entry->attribute.relop);
+            printf("%s\t", relopAttrToString(entry->attribute.relop));
         }
         else if(entry->token_type == ID || entry->token_type == NUM) {
             printf("%llu\t", (long long unsigned int) entry->attribute.table_offset);
