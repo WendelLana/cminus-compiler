@@ -4,4 +4,5 @@ C- compiler for educational purpose
 To run:
 ```
 make
+./build/parser
 ```
