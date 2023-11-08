@@ -27,6 +27,7 @@ TARGET = parser
 
 # Build rule
 $(TARGET): $(PARSER) $(LEXER)
+	mkdir build
 	$(CC) $(CFLAGS) $(CSRCS) -o $(BUILD_PATH)/$(TARGET)
 
 $(PARSER): $(LEXER)

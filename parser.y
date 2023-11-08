@@ -57,7 +57,7 @@ const char* tokenTypeToString(token_t token)
 const char* relopAttrToString(relop_attribute_t relop)
 {
     switch (relop) 
-   {
+    {
       case LT: return "LT";
       case LE: return "LE";
       case EQ: return "EQ";
@@ -69,7 +69,7 @@ const char* relopAttrToString(relop_attribute_t relop)
       case SUBTRACT: return "SUBTRACT";
       case MULTIPLY: return "MULTIPLY";
       case DIVIDE: return "DIVIDE";
-   }
+    }
 }
 
 void print_table()
