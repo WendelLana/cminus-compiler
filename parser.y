@@ -75,22 +75,22 @@ const char* relopAttrToString(relop_attribute_t relop)
 void print_table()
 {
     printf("\n\n");
-    printf(" PART 1: LEXICAL ANALYSIS\n\n");
-    printf(" LEXEME  TOKEN  ATTR  LINE\n");
-    printf(" _______________________________________\n\n");
+    printf("              PART 1: LEXICAL ANALYSIS\n\n");
+    printf("    LEXEME      TOKEN          ATTR           LINE\n");
+    printf(" ______________________________________________________\n\n");
 
     table_entry_t* entry = table.entry;
     while(entry != NULL)
     {
-        printf(" %s\t%s\t", entry->lexeme, tokenTypeToString(entry->token_type));
+        printf(" %-10s\t%-8s\t", entry->lexeme, tokenTypeToString(entry->token_type));
         if(entry->token_type == RELOP) {
-            printf("%s\t", relopAttrToString(entry->attribute.relop));
+            printf("%-8s\t", relopAttrToString(entry->attribute.relop));
         }
         else if(entry->token_type == ID || entry->token_type == NUM) {
-            printf("%llu\t", (long long unsigned int) entry->attribute.table_offset);
+            printf("%llu\t\t", (long long unsigned int) entry->attribute.table_offset);
         }
         else {
-            printf("\t");
+            printf("\t\t");
         }
         printf("%d\t\n", entry->line_num);
 
