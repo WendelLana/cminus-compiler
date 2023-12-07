@@ -1,50 +1,9 @@
 %{
     #include "y.tab.h"
 
-    typedef enum {
-        IF,
-        ELSE,
-        INT,
-        RETURN,
-        VOID,
-        WHILE,
-        ID,
-        NUM,
-        RELOP,
-        SEMI,
-        COMMA,
-        LPAREN,
-        RPAREN,
-        LBRACKET,
-        RBRACKET,
-        LBRACE,
-        RBRACE,
-        ERROR,
-    } token_t;
-
-    typedef enum {
-        LT,
-        LE,
-        EQ,
-        NE,
-        GT,
-        GE,
-        ASSIGN,
-        ADD,
-        SUBTRACT,
-        MULTIPLY,
-        DIVIDE,
-    } relop_attribute_t;
-
-    typedef union {
-        relop_attribute_t relop;
-        size_t table_offset;
-    } attribute_t;
-
     typedef struct table_entry_struct {
         char* lexeme;
-        token_t token_type;
-        attribute_t attribute;
+        int token_type;
         int line_num;
         struct table_entry_struct* next;
     } table_entry_t;
@@ -53,11 +12,10 @@
         table_entry_t* entry;
     } table_t;
 
-    void add_to_table(const char* lexeme, token_t token_type, attribute_t attribute);
-    table_entry_t* create_entry(const char* lexeme, token_t token_type, attribute_t attribute);
+    void add_to_table(const char* lexeme, int token_type);
+    table_entry_t* create_entry(const char* lexeme, int token_type);
 
     int countn = 0; // or keeping track of the line number
-    size_t table_offset = 0;
     table_t table = { .entry = NULL }; // symbol table
 %}
 
@@ -71,64 +29,61 @@ whitespace     [\t\v\f\r\s ]+
 
 %%
 
-"int"               { attribute_t attr; add_to_table(yytext, INT, attr); }
-"void"              { attribute_t attr; add_to_table(yytext, VOID, attr); }
-"return"            { attribute_t attr; add_to_table(yytext, RETURN, attr); }
-"if"	            { attribute_t attr; add_to_table(yytext, IF, attr); }
-"else"	            { attribute_t attr; add_to_table(yytext, ELSE, attr); }
-"while"             { attribute_t attr; add_to_table(yytext, WHILE, attr); }
-{digit}+            { attribute_t attr; attr.table_offset = table_offset; add_to_table(yytext, NUM, attr); }
-{letter}+           { attribute_t attr; attr.table_offset = table_offset; add_to_table(yytext, ID, attr); }
-"<="                { attribute_t attr; attr.relop = LE; add_to_table(yytext, RELOP, attr); }
-">="                { attribute_t attr; attr.relop = GE; add_to_table(yytext, RELOP, attr); }
-"=="                { attribute_t attr; attr.relop = EQ; add_to_table(yytext, RELOP, attr); }
-"!="                { attribute_t attr; attr.relop = NE; add_to_table(yytext, RELOP, attr); }
-">"	                { attribute_t attr; attr.relop = GT; add_to_table(yytext, RELOP, attr); }
-"<"	                { attribute_t attr; attr.relop = LT; add_to_table(yytext, RELOP, attr); }
-"="                 { attribute_t attr; attr.relop = ASSIGN; add_to_table(yytext, RELOP, attr); }
-"+"                 { attribute_t attr; attr.relop = ADD; add_to_table(yytext, RELOP, attr); }
-"-"                 { attribute_t attr; attr.relop = SUBTRACT; add_to_table(yytext, RELOP, attr); }
-"/"                 { attribute_t attr; attr.relop = DIVIDE; add_to_table(yytext, RELOP, attr); }
-"*"                 { attribute_t attr; attr.relop = MULTIPLY; add_to_table(yytext, RELOP, attr); }
-";"                 { attribute_t attr; add_to_table(yytext, SEMI, attr); }
-","                 { attribute_t attr; add_to_table(yytext, COMMA, attr); }
-"("                 { attribute_t attr; add_to_table(yytext, LPAREN, attr); }
-")"                 { attribute_t attr; add_to_table(yytext, RPAREN, attr); }
-"["                 { attribute_t attr; add_to_table(yytext, LBRACKET, attr); }
-"]"                 { attribute_t attr; add_to_table(yytext, RBRACKET, attr); }
-"{"                 { attribute_t attr; add_to_table(yytext, LBRACE, attr); }
-"}"                 { attribute_t attr; add_to_table(yytext, RBRACE, attr); }
+"int"               { add_to_table(yytext, INT); return INT; }
+"void"              { add_to_table(yytext, VOID); return VOID; }
+"return"            { add_to_table(yytext, RETURN); return RETURN; }
+"if"	            { add_to_table(yytext, IF); return IF; }
+"else"	            { add_to_table(yytext, ELSE); return ELSE; }
+"while"             { add_to_table(yytext, WHILE); return WHILE; }
+{digit}+            { add_to_table(yytext, NUM); return NUM; }
+{letter}+           { add_to_table(yytext, ID); return ID; }
+"<="                { add_to_table(yytext, LE); return LE; }
+">="                { add_to_table(yytext, GE); return GE; }
+"=="                { add_to_table(yytext, EQ); return EQ; }
+"!="                { add_to_table(yytext, NE); return NE; }
+">"	                { add_to_table(yytext, GT); return GT; }
+"<"	                { add_to_table(yytext, LT); return LT; }
+"="                 { add_to_table(yytext, ASSIGN); return ASSIGN; }
+"+"                 { add_to_table(yytext, ADD); return ADD; }
+"-"                 { add_to_table(yytext, SUBTRACT); return SUBTRACT; }
+"/"                 { add_to_table(yytext, DIVIDE); return DIVIDE; }
+"*"                 { add_to_table(yytext, MULTIPLY); return MULTIPLY; }
+";"                 { add_to_table(yytext, SEMI); return SEMI; }
+","                 { add_to_table(yytext, COMMA); return COMMA; }
+"("                 { add_to_table(yytext, LPAREN); return LPAREN; }
+")"                 { add_to_table(yytext, RPAREN); return RPAREN; }
+"["                 { add_to_table(yytext, LBRACKET); return LBRACKET; }
+"]"                 { add_to_table(yytext, RBRACKET); return RBRACKET; }
+"{"                 { add_to_table(yytext, LBRACE); return LBRACE; }
+"}"                 { add_to_table(yytext, RBRACE); return RBRACE; }
 {whitespace}        {}
 {mlcomment}         {}
-{incmpltcomment}    { attribute_t attr; add_to_table("/*", ERROR, attr); }
-{slcomment}         { attribute_t attr; add_to_table("//", ERROR, attr); }
+{incmpltcomment}    { add_to_table("/*", ERROR); }
+{slcomment}         { add_to_table("//", ERROR); }
 [\n]                { countn++; }
-.	                { attribute_t attr; add_to_table(yytext, ERROR, attr); }
+.	                { add_to_table(yytext, ERROR); }
 
 %%
 
-void add_to_table(const char* lexeme, token_t token_type, attribute_t attribute) 
+void add_to_table(const char* lexeme, int token_type) 
 {
     if(table.entry == NULL) {
-        table.entry = create_entry(lexeme, token_type, attribute);
+        table.entry = create_entry(lexeme, token_type);
     }
     else {
         table_entry_t* entry = table.entry;
         while(entry->next != NULL) {
             entry = entry->next;
         }
-        entry->next = create_entry(lexeme, token_type, attribute);
+        entry->next = create_entry(lexeme, token_type);
     }
-
-    table_offset++;
 }
 
-table_entry_t* create_entry(const char* lexeme, token_t token_type, attribute_t attribute)
+table_entry_t* create_entry(const char* lexeme, int token_type)
 {
     table_entry_t* entry = (table_entry_t*) malloc(sizeof(table_entry_t));
     entry->lexeme = strdup(lexeme);
     entry->token_type = token_type;
-    entry->attribute = attribute;
     entry->line_num = countn;
     entry->next = NULL;
     return entry;
@@ -138,3 +93,4 @@ int yywrap()
 {
     return 1;
 }
+
