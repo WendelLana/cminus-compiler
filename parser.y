@@ -1,10 +1,11 @@
 %{
-    #define YYPARSER
 
     #include<stdio.h>
     #include<string.h>
     #include<stdlib.h>
     #include<ctype.h>
+
+    extern FILE *yyin;
 
     typedef enum {
       IF_NODE, WHILE_NODE, ASSIGN_NODE, RETURN_NODE, COMPOUND_NODE,
@@ -74,7 +75,6 @@
 
 %%
 program : declarationlist { head = $1; }
-        | error { }
         ;
 
 declarationlist : declarationlist declaration
@@ -108,13 +108,14 @@ var_declaration : type_specifier id SEMI
                     $$ = new_node(VAR_NODE, &attr);
                     $$->child[0] = $1;
                 }
-                | type_specifier id [ NUM ]
+                | type_specifier id LBRACKET num RBRACKET
                 {   node_attr_t attr;
                     attr.arr.name = saved_name;
                     attr.arr.size = saved_number;
                     $$ = new_node(ARRAY_VAR_NODE, &attr);
                     $$->child[0] = $1;
                 }
+                | error SEMI { yyclearin; yyerrok; }
                 ;
 
 type_specifier : INT
@@ -141,15 +142,11 @@ fun_declaration : type_specifier id
                    $$->child[1] = $5;
                    $$->child[2] = $7;
                  }
+                 | error  { yyclearin; yyerrok; }
                 ;
 
 params : param_list { $$ = $1; }
        | VOID
-         { node_attr_t attr;
-           attr.type = VOID_TYPE;
-           $$ = new_node(PARAM_NODE, &attr);
-         }
-       |
          { node_attr_t attr;
            attr.type = VOID_TYPE;
            $$ = new_node(PARAM_NODE, &attr);
@@ -403,8 +400,9 @@ arg_list : arg_list COMMA expression
 
 %%
 
-int main()
+int main(int argc, char *argv[])
 {
+    yyin = (FILE *) fopen(argv[1], "r");
     yyparse();
     print_table();
     free_table();
