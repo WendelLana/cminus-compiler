@@ -42,22 +42,20 @@
     void yyerror(const char *s);
     int yywrap();
 
-    void print_table();
-    void free_table();
-    void printTree();
-    void printTreeToken();
-    void free_tree();
-    node_t* new_node(node_type_t node_type, node_attr_t* node_attr);;
-    char* copyString();
+    static node_t* new_node(node_type_t node_type, node_attr_t* node_attr);;
+    static void print_table();
+    static void free_table();
+    static void print_ast();
+    static void print_tree(node_t* tree);
+    static void free_ast(node_t* head);
 
     #include"lex.yy.c"
 
     extern int countn;
     extern table_t table;
     static table_entry_t* curr_entry = NULL;
-    static int savedNumber;
-    static char* savedName;
-    static int savedLineNo;
+    static int saved_number;
+    static char* saved_name;
     node_t* head;
 %}
 
@@ -76,7 +74,7 @@
 
 %%
 program : declarationlist { head = $1; }
-        | error {  }
+        | error { }
         ;
 
 declarationlist : declarationlist declaration
@@ -97,27 +95,23 @@ declaration : var_declaration { $$ = $1; }
             ;
 
 id : ID
-     { savedName = copyString(yytext);
-       savedLineNo = countn;
-     }
+     { saved_name = strdup(yytext); }
    ;
 
 num : NUM
-      { savedNumber = atoi(yytext);
-        savedLineNo = countn;
-      }
+      { saved_number = atoi(yytext); }
     ;
 
 var_declaration : type_specifier id SEMI
                 {   node_attr_t attr;
-                    attr.name = savedName;
+                    attr.name = saved_name;
                     $$ = new_node(VAR_NODE, &attr);
                     $$->child[0] = $1;
                 }
                 | type_specifier id [ NUM ]
                 {   node_attr_t attr;
-                    attr.arr.name = savedName;
-                    attr.arr.size = savedNumber;
+                    attr.arr.name = saved_name;
+                    attr.arr.size = saved_number;
                     $$ = new_node(ARRAY_VAR_NODE, &attr);
                     $$->child[0] = $1;
                 }
@@ -138,7 +132,7 @@ type_specifier : INT
 fun_declaration : type_specifier id
                 {
                    node_attr_t attr;
-                   attr.name = savedName;
+                   attr.name = saved_name;
                    $$ = new_node(FUNC_NODE, &attr);
                  }
                  LPAREN params RPAREN compound_stmt
@@ -177,13 +171,13 @@ param_list : param_list COMMA param
 
 param : type_specifier id
         { node_attr_t attr;
-          attr.name = savedName;
+          attr.name = saved_name;
           $$ = new_node(PARAM_NODE, &attr);
           $$->child[0] = $1;
         }
       | type_specifier id LBRACKET RBRACKET
         { node_attr_t attr;
-          attr.name = copyString(savedName);
+          attr.name = strdup(saved_name);
           $$ = new_node(ARRAY_PARAM_NODE, &attr);
           $$->child[0] = $1;
         }
@@ -272,12 +266,12 @@ expression : var ASSIGN expression
 
 var : id
       { node_attr_t attr;
-        attr.name = savedName;
+        attr.name = saved_name;
         $$ = new_node(ID_NODE, &attr);
       }
     | id {
         node_attr_t attr;
-        attr.name = savedName;
+        attr.name = saved_name;
         $$ = new_node(ARRAY_ID_NODE, &attr);
       } LBRACKET expression RBRACKET
       {
@@ -382,7 +376,7 @@ factor : LPAREN expression RPAREN { $$ = $2; }
 
 call : id {
          node_attr_t attr;
-         attr.name = savedName;
+         attr.name = saved_name;
          $$ = new_node(CALL_NODE, &attr);
          } LPAREN args RPAREN {
            $$ = $2;
@@ -412,11 +406,24 @@ arg_list : arg_list COMMA expression
 int main()
 {
     yyparse();
-    printTree();
-    free_tree(head);
+    print_table();
+    free_table();
+    print_ast();
+    free_ast(head);
 }
 
-const char* tokenTypeToString(int token)
+static node_t* new_node(node_type_t node_type, node_attr_t* node_attr)
+{
+  node_t* node = (node_t*) malloc(sizeof(node_t));
+  node->sibling = NULL;
+  for(int i = 0; i < 5; i++) node->child[i] = NULL;
+  node->line_num = countn;
+  node->type = node_type;
+  if(node_attr != NULL) node->attr = *node_attr;
+  return node;
+}
+
+static const char* token_type_to_str(int token)
 {
    switch (token)
    {
@@ -451,17 +458,37 @@ const char* tokenTypeToString(int token)
    }
 }
 
-void print_table()
+static const char* var_type_to_str(var_type_t var_type)
+{
+  switch(var_type)
+  {
+    case VOID_TYPE: return "Void";
+    case INT_TYPE: return "Int";
+  }
+}
+
+static int indentno = 0;
+/* macros to increase/decrease indentation */
+#define INDENT indentno+=2
+#define UNINDENT indentno-=2
+
+static void print_spaces(void) {
+  int i;
+  for (i=0;i<indentno;i++)
+    fprintf(stderr," ");
+}
+
+static void print_table()
 {
     printf("\n\n");
     printf("              PART 1: LEXICAL ANALYSIS\n\n");
-    printf("    LEXEME      TOKEN          ATTR           LINE\n");
+    printf("    LEXEME      TOKEN          LINE\n");
     printf(" ______________________________________________________\n\n");
 
     table_entry_t* entry = table.entry;
     while(entry != NULL)
     {
-        printf(" %-10s\t%-8s\t", entry->lexeme, tokenTypeToString(entry->token_type));
+        printf(" %-10s\t%-8s\t", entry->lexeme, token_type_to_str(entry->token_type));
         printf("%d\t\n", entry->line_num);
         entry = entry->next;
     }
@@ -469,7 +496,7 @@ void print_table()
     printf("\n\n");
 }
 
-void free_table()
+static void free_table()
 {
     table_entry_t* entry = table.entry;
     while(entry != NULL)
@@ -481,92 +508,60 @@ void free_table()
     }
 }
 
-node_t* new_node(node_type_t node_type, node_attr_t* node_attr)
-{
-  node_t* node = (node_t*) malloc(sizeof(node_t));
-  node->sibling = NULL;
-  for(int i = 0; i < 5; i++) node->child[i] = NULL;
-  node->line_num = countn;
-  node->type = node_type;
-  if(node_attr != NULL) node->attr = *node_attr;
-  return node;
-}
-
-static int indentno = 0;
-/* macros to increase/decrease indentation */
-#define INDENT indentno+=2
-#define UNINDENT indentno-=2
-
-static void printSpaces(void) {
-  int i;
-  for (i=0;i<indentno;i++)
-    fprintf(stderr," ");
-}
-
-void printTree()
+static void print_ast()
 {
     printf("\n\n");
     printf("              PART 2: SYNTAX TREE\n");
     printf(" ______________________________________________________\n\n");
     printf("Program\n");
-    printTreeToken(head);
+    print_tree(head);
 }
 
-const char* var_type_to_str(var_type_t var_type)
-{
-  switch(var_type)
-  {
-    case VOID_TYPE: return "Void";
-    case INT_TYPE: return "Int";
-  }
-}
-
-void printTreeToken(YYSTYPE tree)
+static void print_tree(node_t* tree)
 {
   INDENT;
   while (tree != NULL) {
-    if (tree->type != TYPE_NODE) printSpaces();
+    if (tree->type != TYPE_NODE) print_spaces();
     switch (tree->type)
     {
       case IF_NODE:
-        printf("If\n");
+        printf("If:\n");
         break;
       case WHILE_NODE:
-        printf("While\n");
+        printf("While:\n");
         break;
       case ASSIGN_NODE:
-        printf("Assign\n");
+        printf("Assign:\n");
         break;
       case RETURN_NODE:
-        printf("Return\n");
+        printf("Return:\n");
         break;
       case COMPOUND_NODE:
-        printf("Compound statement\n");
+        printf("Compound statement:\n");
         break;
       case OP_NODE:
-        printf("Op: %s\n", tokenTypeToString(tree->attr.op));
+        printf("Op: %s\n", token_type_to_str(tree->attr.op));
         break;
       case NUM_NODE:
-        printf("Const: %d\n",tree->attr.val);
+        printf("Num: %d\n", tree->attr.val);
         break;
       case ID_NODE:
-        printf("Id: %s\n",tree->attr.name);
+        printf("Id: %s\n", tree->attr.name);
         break;
       case TYPE_NODE:
         printf("Type: %s\n", var_type_to_str(tree->attr.type));
         break;
       case ARRAY_ID_NODE:
-        printf("ArrId \n");
+        printf("ArrId: %s\n", tree->attr.name);
         break;
       case CALL_NODE:
         printf("Call Function: %s\n", tree->attr.name);
         break;
       case CALC_NODE:
-        printf("Calc: \n");
+        printf("Calc:\n");
         break;
       case VAR_NODE:
-        printf("Variable Declaration:");
-        printf(" %s;\n", tree->attr.name);
+        printf("Variable Declaration: %s\n", tree->attr.name);
         break;
       case FUNC_NODE:
         printf("Function Declaration: %s()\n", tree->attr.name);
@@ -590,37 +585,21 @@ void printTreeToken(YYSTYPE tree)
         }
         break;
     }
-    for (int i=0; i<5; i++) if (tree->child[i] != NULL) printTreeToken(tree->child[i]);
+    for (int i=0; i<5; i++) if (tree->child[i] != NULL) print_tree(tree->child[i]);
     tree = tree->sibling;
   }
   UNINDENT;
 }
 
-void free_tree(YYSTYPE entry)
+static void free_ast(node_t* head)
 {
-    while(entry != NULL)
+    while(head != NULL)
     {
-        node_t* temp = entry;
-        for (int i=0;i<5;i++) if (entry->child[i] != NULL) free_tree(entry->child[i]);
-        entry = entry->sibling;
+        node_t* temp = head;
+        for (int i=0;i<5;i++) if (head->child[i] != NULL) free_ast(head->child[i]);
+        head = head->sibling;
         free(temp);
     }
-}
-
-/* Function copyString allocates and makes a new
- * copy of an existing string
- */
-char* copyString(char* s)
-{
-  int n;
-  char * t;
-  if (s==NULL) return NULL;
-  n = strlen(s)+1;
-  t = malloc(n);
-  if (t==NULL)
-    fprintf(stderr,"Out of memory error at line %d\n",countn);
-  else strcpy(t,s);
-  return t;
 }
 
 void yyerror(const char* msg)
