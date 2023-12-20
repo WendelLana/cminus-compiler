@@ -5,50 +5,21 @@
     #include<stdlib.h>
     #include<ctype.h>
 
+    #include "ast.h"
+
     extern FILE *yyin;
 
-    typedef enum {
-      IF_NODE, WHILE_NODE, ASSIGN_NODE, RETURN_NODE, COMPOUND_NODE,
-      OP_NODE, NUM_NODE, ID_NODE, TYPE_NODE, ARRAY_ID_NODE, CALL_NODE,
-      CALC_NODE, VAR_NODE, FUNC_NODE, ARRAY_VAR_NODE, ARRAY_PARAM_NODE,
-      PARAM_NODE
-    } node_type_t;
-    typedef enum {
-      VOID_TYPE, INT_TYPE
-    } var_type_t;
-
-    typedef struct {
-        int type;
-        char* name;
-        int size;
-    } array_t;
-
-    typedef union {
-      int op;
-      var_type_t type;
-      int val;
-      char* name;
-      array_t arr;
-    } node_attr_t;
-
-    typedef struct node_struct {
-        struct node_struct* sibling;
-	      struct node_struct* child[5];
-        int line_num;
-        node_type_t type;
-        node_attr_t attr;
-    } node_t;
-    #define YYSTYPE node_t*
+    #define YYSTYPE ast_node_t*
 
     void yyerror(const char *s);
     int yywrap();
 
-    static node_t* new_node(node_type_t node_type, node_attr_t* node_attr);;
+    static ast_node_t* new_node(ast_node_type_t ast_node_type, ast_node_attr_t* node_attr);
     static void print_table();
     static void free_table();
     static void print_ast();
-    static void print_tree(node_t* tree);
-    static void free_ast(node_t* head);
+    static void print_tree(ast_node_t* tree);
+    static void free_ast(ast_node_t* head);
 
     #include"lex.yy.c"
 
@@ -57,7 +28,7 @@
     static table_entry_t* curr_entry = NULL;
     static int saved_number;
     static char* saved_name;
-    node_t* head;
+    ast_node_t* head;
 %}
 
 %token IF ELSE INT RETURN VOID WHILE
@@ -103,13 +74,13 @@ num : NUM
     ;
 
 var_declaration : type_specifier id SEMI
-                {   node_attr_t attr;
+                {   ast_node_attr_t attr;
                     attr.name = saved_name;
                     $$ = new_node(VAR_NODE, &attr);
                     $$->child[0] = $1;
                 }
                 | type_specifier id LBRACKET num RBRACKET
-                {   node_attr_t attr;
+                {   ast_node_attr_t attr;
                     attr.arr.name = saved_name;
                     attr.arr.size = saved_number;
                     $$ = new_node(ARRAY_VAR_NODE, &attr);
@@ -119,12 +90,12 @@ var_declaration : type_specifier id SEMI
                 ;
 
 type_specifier : INT
-                 { node_attr_t attr;
+                 { ast_node_attr_t attr;
                    attr.type = INT_TYPE;
                    $$ = new_node(TYPE_NODE, &attr);
                  }
                | VOID
-                 { node_attr_t attr;
+                 { ast_node_attr_t attr;
                    attr.type = VOID_TYPE;
                    $$ = new_node(TYPE_NODE, &attr);
                  }
@@ -132,7 +103,7 @@ type_specifier : INT
 
 fun_declaration : type_specifier id
                 {
-                   node_attr_t attr;
+                   ast_node_attr_t attr;
                    attr.name = saved_name;
                    $$ = new_node(FUNC_NODE, &attr);
                  }
@@ -147,7 +118,7 @@ fun_declaration : type_specifier id
 
 params : param_list { $$ = $1; }
        | VOID
-         { node_attr_t attr;
+         { ast_node_attr_t attr;
            attr.type = VOID_TYPE;
            $$ = new_node(PARAM_NODE, &attr);
          }
@@ -167,13 +138,13 @@ param_list : param_list COMMA param
            ;
 
 param : type_specifier id
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.name = saved_name;
           $$ = new_node(PARAM_NODE, &attr);
           $$->child[0] = $1;
         }
       | type_specifier id LBRACKET RBRACKET
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.name = strdup(saved_name);
           $$ = new_node(ARRAY_PARAM_NODE, &attr);
           $$->child[0] = $1;
@@ -262,12 +233,12 @@ expression : var ASSIGN expression
            ;
 
 var : id
-      { node_attr_t attr;
+      { ast_node_attr_t attr;
         attr.name = saved_name;
         $$ = new_node(ID_NODE, &attr);
       }
     | id {
-        node_attr_t attr;
+        ast_node_attr_t attr;
         attr.name = saved_name;
         $$ = new_node(ARRAY_ID_NODE, &attr);
       } LBRACKET expression RBRACKET
@@ -287,32 +258,32 @@ simple_expression : sum_expression relop sum_expression
                   ;
 
 relop : LT
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = LT;
           $$ = new_node(OP_NODE, &attr);
         }
       | LE
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = LE;
           $$ = new_node(OP_NODE, &attr);
         }
       | GT
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = GT;
           $$ = new_node(OP_NODE, &attr);
         }
       | GE
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = GE;
           $$ = new_node(OP_NODE, &attr);
         }
       | EQ
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = EQ;
           $$ = new_node(OP_NODE, &attr);
         }
       | NE
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = NE;
           $$ = new_node(OP_NODE, &attr);
         }
@@ -328,12 +299,12 @@ sum_expression : sum_expression addop term
                     ;
 
 addop : ADD
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = ADD;
           $$ = new_node(OP_NODE, &attr);
         }
       | SUBTRACT
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = SUBTRACT;
           $$ = new_node(OP_NODE, &attr);
         }
@@ -349,12 +320,12 @@ term : term mulop factor
      ;
 
 mulop : MULTIPLY
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = MULTIPLY;
           $$ = new_node(OP_NODE, &attr);
         }
       | DIVIDE
-        { node_attr_t attr;
+        { ast_node_attr_t attr;
           attr.op = DIVIDE;
           $$ = new_node(OP_NODE, &attr);
         }
@@ -364,7 +335,7 @@ factor : LPAREN expression RPAREN { $$ = $2; }
        | var { $$ = $1; }
        | call { $$ = $1; }
        | num
-         { node_attr_t attr;
+         { ast_node_attr_t attr;
            attr.type = INT_TYPE;
            attr.val = atoi(yytext);
            $$ = new_node(NUM_NODE, &attr);
@@ -372,7 +343,7 @@ factor : LPAREN expression RPAREN { $$ = $2; }
        ;
 
 call : id {
-         node_attr_t attr;
+         ast_node_attr_t attr;
          attr.name = saved_name;
          $$ = new_node(CALL_NODE, &attr);
          } LPAREN args RPAREN {
@@ -410,13 +381,13 @@ int main(int argc, char *argv[])
     free_ast(head);
 }
 
-static node_t* new_node(node_type_t node_type, node_attr_t* node_attr)
+static ast_node_t* new_node(ast_node_type_t ast_node_type, ast_node_attr_t* node_attr)
 {
-  node_t* node = (node_t*) malloc(sizeof(node_t));
+  ast_node_t* node = (ast_node_t*) malloc(sizeof(ast_node_t));
   node->sibling = NULL;
   for(int i = 0; i < 5; i++) node->child[i] = NULL;
   node->line_num = countn;
-  node->type = node_type;
+  node->type = ast_node_type;
   if(node_attr != NULL) node->attr = *node_attr;
   return node;
 }
@@ -456,7 +427,7 @@ static const char* token_type_to_str(int token)
    }
 }
 
-static const char* var_type_to_str(var_type_t var_type)
+static const char* var_type_to_str(ast_var_type_t var_type)
 {
   switch(var_type)
   {
@@ -515,7 +486,7 @@ static void print_ast()
     print_tree(head);
 }
 
-static void print_tree(node_t* tree)
+static void print_tree(ast_node_t* tree)
 {
   INDENT;
   while (tree != NULL) {
@@ -589,11 +560,11 @@ static void print_tree(node_t* tree)
   UNINDENT;
 }
 
-static void free_ast(node_t* head)
+static void free_ast(ast_node_t* head)
 {
     while(head != NULL)
     {
-        node_t* temp = head;
+        ast_node_t* temp = head;
         for (int i=0;i<5;i++) if (head->child[i] != NULL) free_ast(head->child[i]);
         head = head->sibling;
         free(temp);

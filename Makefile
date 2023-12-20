@@ -39,7 +39,7 @@ $(LEXER):
 
 # Clean rule
 clean:
-	rm y.* lex.yy.c $(BUILD_PATH)/* 
+	rm y.* lex.yy.c $(BUILD_PATH)/*
 
 # Phony targets
 .PHONY: all clean
