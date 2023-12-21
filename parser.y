@@ -28,7 +28,7 @@
     static table_entry_t* curr_entry = NULL;
     static int saved_number;
     static char* saved_name;
-    ast_node_t* head;
+    ast_node_t* ast_head;
 %}
 
 %token IF ELSE INT RETURN VOID WHILE
@@ -45,7 +45,7 @@
 
 
 %%
-program : declarationlist { head = $1; }
+program : declarationlist { ast_head = $1; }
         ;
 
 declarationlist : declarationlist declaration
@@ -371,6 +371,7 @@ arg_list : arg_list COMMA expression
 
 %%
 
+/*
 int main(int argc, char *argv[])
 {
     yyin = (FILE *) fopen(argv[1], "r");
@@ -378,8 +379,9 @@ int main(int argc, char *argv[])
     print_table();
     free_table();
     print_ast();
-    free_ast(head);
+    free_ast(ast_head);
 }
+*/
 
 static ast_node_t* new_node(ast_node_type_t ast_node_type, ast_node_attr_t* node_attr)
 {
@@ -389,6 +391,9 @@ static ast_node_t* new_node(ast_node_type_t ast_node_type, ast_node_attr_t* node
   node->line_num = countn;
   node->type = ast_node_type;
   if(node_attr != NULL) node->attr = *node_attr;
+  node->if_label = NULL;
+  node->if_label_after = NULL;
+  node->if_end_label = NULL;
   return node;
 }
 
@@ -424,6 +429,7 @@ static const char* token_type_to_str(int token)
       case MULTIPLY: return "MULTIPLY";
       case DIVIDE: return "DIVIDE";
       case ERROR: return "ERROR";
+      default: return NULL; // should never happen
    }
 }
 
@@ -433,6 +439,7 @@ static const char* var_type_to_str(ast_var_type_t var_type)
   {
     case VOID_TYPE: return "Void";
     case INT_TYPE: return "Int";
+    default: return NULL; // should never happen
   }
 }
 
@@ -483,7 +490,7 @@ static void print_ast()
     printf("              PART 2: SYNTAX TREE\n");
     printf(" ______________________________________________________\n\n");
     printf("Program\n");
-    print_tree(head);
+    print_tree(ast_head);
 }
 
 static void print_tree(ast_node_t* tree)

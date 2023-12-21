@@ -18,12 +18,12 @@ PARSER_SRCS = parser.y
 # C Compiler
 CC = gcc
 # C Compiler flags
-CFLAGS =
+CFLAGS = -Wall
 # C Source files
-CSRCS = y.tab.c
+CSRCS = compiler.c y.tab.c mips.c
 
 # Executable name
-TARGET = parser
+TARGET = compiler
 
 # Build rule
 $(TARGET): $(PARSER) $(LEXER)

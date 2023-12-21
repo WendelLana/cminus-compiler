@@ -1,6 +1,8 @@
 #ifndef AST_H
 #define AST_H
 
+#include <stdbool.h>
+
 typedef enum {
     IF_NODE, WHILE_NODE, ASSIGN_NODE, RETURN_NODE, COMPOUND_NODE,
     OP_NODE, NUM_NODE, ID_NODE, TYPE_NODE, ARRAY_ID_NODE, CALL_NODE,
@@ -27,10 +29,15 @@ typedef union {
 
 typedef struct node_struct {
     struct node_struct* sibling;
-        struct node_struct* child[5];
+    struct node_struct* child[5];
     int line_num;
     ast_node_type_t type;
     ast_node_attr_t attr;
+    char* if_label;
+    char* if_label_after;
+    char* if_end_label;
 } ast_node_t;
+
+extern ast_node_t* ast_head;
 
 #endif // AST_H
