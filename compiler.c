@@ -164,9 +164,11 @@ static void compile_node(ast_node_t* node)
       IS_TYPE_FOR_FUNC_RET = true;
       break;
     case ARRAY_VAR_NODE:
-      mips_allocate_sub_stack(node->attr.arr.size*4);
+      mips_allocate_sub_stack((node->attr.arr.size*4)+4);
       write_empty_line();
-      CURR_FUNC_STACK_OFFSET += node->attr.arr.size*4;
+      CURR_FUNC_STACK_OFFSET += (node->attr.arr.size*4)+4;
+      mips_move_stack_addr_to_temp(0, CURR_FUNC_STACK_OFFSET-4);
+      mips_store_stack_from_temp_reg(CURR_FUNC_STACK_OFFSET, 0);
       add_id_to_list(node->attr.arr.name, CURR_FUNC_STACK_OFFSET);
       break;
     case ARRAY_PARAM_NODE:
@@ -204,7 +206,7 @@ static void compile_assign_node(ast_node_t* node, int temp_reg)
   else if(node->child[1]->type == ARRAY_ID_NODE) {
     compile_array_expr(node->child[1]->child[0], temp_reg+1);
     int offset = get_id_offset(node->child[1]->attr.name);
-    mips_move_stack_addr_to_temp(temp_reg, offset);
+    mips_load_stack_to_temp_reg(temp_reg, offset);
     mips_add_temp_regs(temp_reg, temp_reg+1);
     mips_lw_temp_regs(temp_reg, temp_reg);
   }
@@ -222,7 +224,7 @@ static void compile_assign_node(ast_node_t* node, int temp_reg)
   else { // ARRAY_ID_NODE
     compile_array_expr(node->child[0]->child[0], temp_reg+2);
     int offset = get_id_offset(node->child[0]->attr.name);
-    mips_move_stack_addr_to_temp(temp_reg+1, offset);
+    mips_load_stack_to_temp_reg(temp_reg+1, offset);
     mips_add_temp_regs(temp_reg+1, temp_reg+2);
     mips_sw_temp_regs(temp_reg, temp_reg+1);
   }
@@ -244,7 +246,7 @@ static void compile_calc_node(ast_node_t* node, int temp_reg)
   else if(node->child[0]->type == ARRAY_ID_NODE) {
     compile_array_expr(node->child[0]->child[0], temp_reg+2);
     int offset = get_id_offset(node->child[0]->attr.name);
-    mips_move_stack_addr_to_temp(temp_reg, offset);
+    mips_load_stack_to_temp_reg(temp_reg, offset);
     mips_add_temp_regs(temp_reg, temp_reg+2);
     mips_lw_temp_regs(temp_reg, temp_reg);
   }
@@ -264,7 +266,7 @@ static void compile_calc_node(ast_node_t* node, int temp_reg)
   else if(node->child[2]->type == ARRAY_ID_NODE) {
     compile_array_expr(node->child[2]->child[0], temp_reg+2);
     int offset = get_id_offset(node->child[2]->attr.name);
-    mips_move_stack_addr_to_temp(temp_reg+1, offset);
+    mips_load_stack_to_temp_reg(temp_reg+1, offset);
     mips_add_temp_regs(temp_reg+1, temp_reg+2);
     mips_lw_temp_regs(temp_reg+1, temp_reg+1);
   }
@@ -312,7 +314,7 @@ static void compile_relop_calc_node(ast_node_t* node)
   else if(node->child[0]->type == ARRAY_ID_NODE) {
     compile_array_expr(node->child[0]->child[0], 2);
     int offset = get_id_offset(node->child[0]->attr.name);
-    mips_move_stack_addr_to_temp(0, offset);
+    mips_load_stack_to_temp_reg(0, offset);
     mips_add_temp_regs(0, 2);
     mips_lw_temp_regs(0, 0);
   }
@@ -330,7 +332,7 @@ static void compile_relop_calc_node(ast_node_t* node)
   else if(node->child[2]->type == ARRAY_ID_NODE) {
     compile_array_expr(node->child[2]->child[0], 2);
     int offset = get_id_offset(node->child[2]->attr.name);
-    mips_move_stack_addr_to_temp(1, offset);
+    mips_load_stack_to_temp_reg(1, offset);
     mips_add_temp_regs(1, 2);
     mips_lw_temp_regs(1, 1);
   }
@@ -490,7 +492,7 @@ static void compile_return_node(ast_node_t* node)
     else if(node->child[0]->type == ARRAY_ID_NODE) {
       compile_array_expr(node->child[0]->child[0], 1);
       int offset = get_id_offset(node->child[0]->attr.name);
-      mips_move_stack_addr_to_temp(0, offset);
+      mips_load_stack_to_temp_reg(0, offset);
       mips_add_temp_regs(0, 1);
       mips_lw_temp_regs(0, 0);
     }
@@ -518,15 +520,13 @@ static void compile_call_node(ast_node_t* node, int temp_reg)
     else if(aux->type == NUM_NODE)
       mips_li_to_temp_reg(temp_reg, aux->attr.val);
     else if(aux->type == ARRAY_ID_NODE) {
-      printf("array:%s\n", aux->attr.name);
       compile_array_expr(aux->child[0], temp_reg+1);
       int offset = get_id_offset(aux->attr.name);
-      mips_move_stack_addr_to_temp(temp_reg, offset);
+      mips_load_stack_to_temp_reg(temp_reg, offset);
       mips_add_temp_regs(temp_reg, temp_reg+1);
       mips_lw_temp_regs(temp_reg, temp_reg);
     }
     else { // ID_NODE
-      printf("notarrray:%s\n", aux->attr.name);
       int offset = get_id_offset(aux->attr.name);
       mips_load_stack_to_temp_reg(temp_reg, offset);
     }
@@ -537,6 +537,7 @@ static void compile_call_node(ast_node_t* node, int temp_reg)
 
   mips_call_func(node->attr.name);
   mips_store_return_saved_reg(temp_reg);
+  mips_move_saved_to_temp(temp_reg, temp_reg);
 }
 
 static void compile_array_expr(ast_node_t* node, int temp_reg) {
@@ -547,7 +548,7 @@ static void compile_array_expr(ast_node_t* node, int temp_reg) {
     else if(node->type == ARRAY_ID_NODE) {
       compile_array_expr(node->child[0], temp_reg+1);
       int offset = get_id_offset(node->attr.name);
-      mips_move_stack_addr_to_temp(temp_reg, offset);
+      mips_load_stack_to_temp_reg(temp_reg, offset);
       mips_add_temp_regs(temp_reg, temp_reg+1);
       mips_lw_temp_regs(temp_reg, temp_reg);
     }
