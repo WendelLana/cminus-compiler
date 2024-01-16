@@ -79,7 +79,7 @@ var_declaration : type_specifier id SEMI
                     $$ = new_node(VAR_NODE, &attr);
                     $$->child[0] = $1;
                 }
-                | type_specifier id LBRACKET num RBRACKET
+                | type_specifier id LBRACKET num RBRACKET SEMI
                 {   ast_node_attr_t attr;
                     attr.arr.name = saved_name;
                     attr.arr.size = saved_number;

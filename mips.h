@@ -27,5 +27,10 @@ void mips_load_temp_reg_arg(int arg, int temp_reg);
 void mips_call_func(char* label);
 void mips_store_return_saved_reg(int saved_reg);
 void mips_move_saved_to_temp(int temp_reg, int saved_reg);
+void mips_move_stack_addr_to_temp(int temp_reg, int offset);
+void mips_lw_temp_regs(int temp_reg, int temp_reg2);
+void mips_sw_temp_regs(int temp_reg, int temp_reg2);
+void mips_mul_temp_reg_imm(int temp_reg, int imm);
+void mips_exit_syscall();
 
 #endif // MIPS_H

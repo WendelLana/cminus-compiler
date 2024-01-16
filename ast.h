@@ -36,6 +36,8 @@ typedef struct node_struct {
     char* if_label;
     char* if_label_after;
     char* if_end_label;
+    char* while_label;
+    char* while_end_label;
 } ast_node_t;
 
 extern ast_node_t* ast_head;

@@ -19,8 +19,10 @@ static void compile_assign_node(ast_node_t* node, int temp_reg);
 static void compile_calc_node(ast_node_t* node, int temp_reg);
 static void compile_relop_calc_node(ast_node_t* node);
 static void compile_if_node(ast_node_t* node);
+static void compile_while_node(ast_node_t* node);
 static void compile_return_node(ast_node_t* node);
 static void compile_call_node(ast_node_t* node, int temp_reg);
+static void compile_array_expr(ast_node_t* node, int temp_reg);
 static void add_id_to_list(char* id, int offset);
 static int get_id_offset(char* id);
 static void free_id_list();
@@ -29,11 +31,13 @@ static void panic_exit(char* error_msg);
 
 static FILE* PRG_FILE;
 static bool IS_TYPE_FOR_FUNC_RET = false;
+static bool IS_FUNC_MAIN = false;
 static ast_var_type_t CURR_FUNC_RET_TYPE = VOID_TYPE;
 static char* CURR_FUNC_NAME = NULL;
 static int CURR_FUNC_ARG_COUNT = 0;
 static int CURR_FUNC_STACK_OFFSET = 0;
 static int CURR_FUNC_IF_BRANCH_ID = 0;
+static int CURR_FUNC_WHILE_BRANCH_ID = 0;
 static id_list_node* ID_LIST_HEAD = NULL;
 
 // FIXME
@@ -55,6 +59,8 @@ int main()
     }
 
     mips_set_output_file(PRG_FILE);
+    mips_unconditional_jmp("main");
+    write_empty_line();
     traverse_ast_and_compile(ast_head);
     temp_print_id_list();
     fclose(PRG_FILE);
@@ -76,6 +82,8 @@ static void traverse_ast_and_compile(ast_node_t* node)
 
 static void compile_node(ast_node_t* node)
 {
+  printf("type:%d line:%d\n", node->type, node->line_num);
+
   if(node->if_label != NULL && node->type != CALC_NODE) {
     if(node->if_end_label != NULL) {
       mips_unconditional_jmp(node->if_end_label);
@@ -83,13 +91,18 @@ static void compile_node(ast_node_t* node)
     mips_write_label(node->if_label);
   }
 
-  printf("type:%d line:%d\n", node->type, node->line_num);
+  if(node->while_label != NULL && node->type != CALC_NODE) {
+    mips_unconditional_jmp(node->while_label);
+    mips_write_label(node->while_end_label);
+  }
+
   switch (node->type)
   {
     case IF_NODE:
       compile_if_node(node);
       break;
     case WHILE_NODE:
+      compile_while_node(node);
       break;
     case ASSIGN_NODE:
       compile_assign_node(node, 0);
@@ -120,7 +133,7 @@ static void compile_node(ast_node_t* node)
       write_empty_line();
       break;
     case CALC_NODE:
-      if(node->if_label == NULL) {
+      if(node->if_label == NULL && node->while_end_label == NULL) {
         panic_exit("\"compile_node\" reached unreachable node"); // should never happen
       }
       compile_relop_calc_node(node);
@@ -134,12 +147,19 @@ static void compile_node(ast_node_t* node)
       break;
     case FUNC_NODE:
       mips_write_label(node->attr.name);
-      mips_setup_stack_frame();
-      write_empty_line();
+      IS_FUNC_MAIN = false;
+      if(strncmp(node->attr.name, "main", 4) == 0) {
+        IS_FUNC_MAIN = true;
+      }
+      else {
+        mips_setup_stack_frame();
+        write_empty_line();
+      }
       CURR_FUNC_NAME = node->attr.name;
       CURR_FUNC_ARG_COUNT = 0;
       CURR_FUNC_STACK_OFFSET = 0;
       CURR_FUNC_IF_BRANCH_ID = 0;
+      CURR_FUNC_WHILE_BRANCH_ID = 0;
       free_id_list();
       IS_TYPE_FOR_FUNC_RET = true;
       break;
@@ -147,7 +167,7 @@ static void compile_node(ast_node_t* node)
       mips_allocate_sub_stack(node->attr.arr.size*4);
       write_empty_line();
       CURR_FUNC_STACK_OFFSET += node->attr.arr.size*4;
-      add_id_to_list(node->attr.name, CURR_FUNC_STACK_OFFSET);
+      add_id_to_list(node->attr.arr.name, CURR_FUNC_STACK_OFFSET);
       break;
     case ARRAY_PARAM_NODE:
       mips_push_func_arg(CURR_FUNC_ARG_COUNT);
@@ -181,6 +201,13 @@ static void compile_assign_node(ast_node_t* node, int temp_reg)
     int offset = get_id_offset(node->child[1]->attr.name);
     mips_load_stack_to_temp_reg(temp_reg, offset);
   }
+  else if(node->child[1]->type == ARRAY_ID_NODE) {
+    compile_array_expr(node->child[1]->child[0], temp_reg+1);
+    int offset = get_id_offset(node->child[1]->attr.name);
+    mips_move_stack_addr_to_temp(temp_reg, offset);
+    mips_add_temp_regs(temp_reg, temp_reg+1);
+    mips_lw_temp_regs(temp_reg, temp_reg);
+  }
   else if(node->child[1]->type == ASSIGN_NODE) {
     compile_assign_node(node->child[1], temp_reg);
   }
@@ -188,8 +215,17 @@ static void compile_assign_node(ast_node_t* node, int temp_reg)
     compile_call_node(node->child[1], temp_reg);
   }
 
-  int offset = get_id_offset(node->child[0]->attr.name);
-  mips_store_stack_from_temp_reg(offset, temp_reg);
+  if(node->child[0]->type == ID_NODE) {
+    int offset = get_id_offset(node->child[0]->attr.name);
+    mips_store_stack_from_temp_reg(offset, temp_reg);
+  }
+  else { // ARRAY_ID_NODE
+    compile_array_expr(node->child[0]->child[0], temp_reg+2);
+    int offset = get_id_offset(node->child[0]->attr.name);
+    mips_move_stack_addr_to_temp(temp_reg+1, offset);
+    mips_add_temp_regs(temp_reg+1, temp_reg+2);
+    mips_sw_temp_regs(temp_reg, temp_reg+1);
+  }
 }
 
 static void compile_calc_node(ast_node_t* node, int temp_reg)
@@ -205,6 +241,13 @@ static void compile_calc_node(ast_node_t* node, int temp_reg)
     int offset = get_id_offset(node->child[0]->attr.name);
     mips_load_stack_to_temp_reg(temp_reg, offset);
   }
+  else if(node->child[0]->type == ARRAY_ID_NODE) {
+    compile_array_expr(node->child[0]->child[0], temp_reg+2);
+    int offset = get_id_offset(node->child[0]->attr.name);
+    mips_move_stack_addr_to_temp(temp_reg, offset);
+    mips_add_temp_regs(temp_reg, temp_reg+2);
+    mips_lw_temp_regs(temp_reg, temp_reg);
+  }
   else { // CALL_NODE
     compile_call_node(node->child[0], temp_reg);
     saved_reg1 = true;
@@ -214,9 +257,16 @@ static void compile_calc_node(ast_node_t* node, int temp_reg)
     compile_calc_node(node->child[2], temp_reg+1);
   else if(node->child[2]->type == NUM_NODE)
     mips_li_to_temp_reg(temp_reg+1, node->child[2]->attr.val);
-  else if(node->child[0]->type == ID_NODE) {
+  else if(node->child[2]->type == ID_NODE) {
     int offset = get_id_offset(node->child[2]->attr.name);
     mips_load_stack_to_temp_reg(temp_reg+1, offset);
+  }
+  else if(node->child[2]->type == ARRAY_ID_NODE) {
+    compile_array_expr(node->child[2]->child[0], temp_reg+2);
+    int offset = get_id_offset(node->child[2]->attr.name);
+    mips_move_stack_addr_to_temp(temp_reg+1, offset);
+    mips_add_temp_regs(temp_reg+1, temp_reg+2);
+    mips_lw_temp_regs(temp_reg+1, temp_reg+1);
   }
   else { // CALL_NODE
     compile_call_node(node->child[2], temp_reg+1);
@@ -259,6 +309,13 @@ static void compile_relop_calc_node(ast_node_t* node)
   else if(node->child[0]->type == NUM_NODE) {
     mips_li_to_temp_reg(0, node->child[0]->attr.val);
   }
+  else if(node->child[0]->type == ARRAY_ID_NODE) {
+    compile_array_expr(node->child[0]->child[0], 2);
+    int offset = get_id_offset(node->child[0]->attr.name);
+    mips_move_stack_addr_to_temp(0, offset);
+    mips_add_temp_regs(0, 2);
+    mips_lw_temp_regs(0, 0);
+  }
   else { // ID_NODE
     int offset = get_id_offset(node->child[0]->attr.name);
     mips_load_stack_to_temp_reg(0, offset);
@@ -270,6 +327,13 @@ static void compile_relop_calc_node(ast_node_t* node)
   else if(node->child[2]->type == NUM_NODE) {
     mips_li_to_temp_reg(1, node->child[2]->attr.val);
   }
+  else if(node->child[2]->type == ARRAY_ID_NODE) {
+    compile_array_expr(node->child[2]->child[0], 2);
+    int offset = get_id_offset(node->child[2]->attr.name);
+    mips_move_stack_addr_to_temp(1, offset);
+    mips_add_temp_regs(1, 2);
+    mips_lw_temp_regs(1, 1);
+  }
   else { // ID_NODE
     int offset = get_id_offset(node->child[2]->attr.name);
     mips_load_stack_to_temp_reg(1, offset);
@@ -278,24 +342,32 @@ static void compile_relop_calc_node(ast_node_t* node)
   if(node->child[1]->type != OP_NODE) {
     panic_exit("\"compile_relop_calc_node\" reached unreachable node");
   }
+
+  char* label;
+  if(node->if_label != NULL) {
+    label = node->if_label;
+  }
+  else {
+    label = node->while_end_label;
+  }
   switch(node->child[1]->attr.op) { // OPPOSITE CONDITION
     case LT:
-      mips_ge_temp_regs(0, 1, node->if_label);
+      mips_ge_temp_regs(0, 1, label);
       break;
     case LE:
-      mips_gt_temp_regs(0, 1, node->if_label);
+      mips_gt_temp_regs(0, 1, label);
       break;
     case GT:
-      mips_le_temp_regs(0, 1, node->if_label);
+      mips_le_temp_regs(0, 1, label);
       break;
     case GE:
-      mips_lt_temp_regs(0, 1, node->if_label);
+      mips_lt_temp_regs(0, 1, label);
       break;
     case EQ:
-      mips_ne_temp_regs(0, 1, node->if_label);
+      mips_ne_temp_regs(0, 1, label);
       break;
     case NE:
-      mips_eq_temp_regs(0, 1, node->if_label);
+      mips_eq_temp_regs(0, 1, label);
       break;
     default: // should never happen
       panic_exit("\"compile_relop_calc_node\" reached unreachable node");
@@ -319,7 +391,6 @@ static void compile_if_node(ast_node_t* node)
         node->if_label_after = NULL;
       }
     }
-    // if with else and no siblings (search last node and put label after)
     else {
       if(node->sibling == NULL) {
         if(node->if_label_after != NULL) {
@@ -386,12 +457,42 @@ static void compile_if_node(ast_node_t* node)
   CURR_FUNC_IF_BRANCH_ID++;
 }
 
+static void compile_while_node(ast_node_t* node)
+{
+  char while_label[100], while_end_label[100];
+
+  sprintf(while_label, "%sStartWhile%d", CURR_FUNC_NAME, CURR_FUNC_WHILE_BRANCH_ID);
+  sprintf(while_end_label, "%sEndWhile%d", CURR_FUNC_NAME, CURR_FUNC_WHILE_BRANCH_ID);
+  CURR_FUNC_WHILE_BRANCH_ID++;
+
+  mips_write_label(while_label);
+
+  if(node->sibling != NULL) {
+    node->sibling->while_label = strdup(while_label);
+    node->sibling->while_end_label = strdup(while_end_label);
+  }
+
+  node->child[0]->while_end_label = strdup(while_end_label);
+}
+
 static void compile_return_node(ast_node_t* node)
 {
+  if(IS_FUNC_MAIN) {
+    mips_exit_syscall();
+    return;
+  }
+
   if(node->child[0] != NULL) {
     if(node->child[0]->type == ID_NODE) {
       int offset = get_id_offset(node->child[0]->attr.name);
       mips_load_stack_to_temp_reg(0, offset);
+    }
+    else if(node->child[0]->type == ARRAY_ID_NODE) {
+      compile_array_expr(node->child[0]->child[0], 1);
+      int offset = get_id_offset(node->child[0]->attr.name);
+      mips_move_stack_addr_to_temp(0, offset);
+      mips_add_temp_regs(0, 1);
+      mips_lw_temp_regs(0, 0);
     }
     else if(node->child[0]->type == NUM_NODE) {
       mips_li_to_temp_reg(0, node->child[0]->attr.val);
@@ -416,7 +517,16 @@ static void compile_call_node(ast_node_t* node, int temp_reg)
       compile_calc_node(aux, temp_reg);
     else if(aux->type == NUM_NODE)
       mips_li_to_temp_reg(temp_reg, aux->attr.val);
+    else if(aux->type == ARRAY_ID_NODE) {
+      printf("array:%s\n", aux->attr.name);
+      compile_array_expr(aux->child[0], temp_reg+1);
+      int offset = get_id_offset(aux->attr.name);
+      mips_move_stack_addr_to_temp(temp_reg, offset);
+      mips_add_temp_regs(temp_reg, temp_reg+1);
+      mips_lw_temp_regs(temp_reg, temp_reg);
+    }
     else { // ID_NODE
+      printf("notarrray:%s\n", aux->attr.name);
       int offset = get_id_offset(aux->attr.name);
       mips_load_stack_to_temp_reg(temp_reg, offset);
     }
@@ -427,6 +537,26 @@ static void compile_call_node(ast_node_t* node, int temp_reg)
 
   mips_call_func(node->attr.name);
   mips_store_return_saved_reg(temp_reg);
+}
+
+static void compile_array_expr(ast_node_t* node, int temp_reg) {
+    if(node->type == CALC_NODE)
+      compile_calc_node(node, temp_reg);
+    else if(node->type == NUM_NODE)
+      mips_li_to_temp_reg(temp_reg, node->attr.val);
+    else if(node->type == ARRAY_ID_NODE) {
+      compile_array_expr(node->child[0], temp_reg+1);
+      int offset = get_id_offset(node->attr.name);
+      mips_move_stack_addr_to_temp(temp_reg, offset);
+      mips_add_temp_regs(temp_reg, temp_reg+1);
+      mips_lw_temp_regs(temp_reg, temp_reg);
+    }
+    else { // ID_NODE
+      int offset = get_id_offset(node->attr.name);
+      mips_load_stack_to_temp_reg(temp_reg, offset);
+    }
+
+    mips_mul_temp_reg_imm(temp_reg, 4);
 }
 
 static void add_id_to_list(char* id, int offset)

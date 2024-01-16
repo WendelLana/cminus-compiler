@@ -125,6 +125,29 @@ void mips_move_saved_to_temp(int temp_reg, int saved_reg) {
     fprintf(OUTPUT, "move $t%d, $s%d\n", temp_reg, saved_reg);
 }
 
+void mips_move_stack_addr_to_temp(int temp_reg, int offset) {
+    fprintf(OUTPUT, "la $t%d, -%d($fp)\n", temp_reg, offset);
+}
+
+void mips_lw_temp_regs(int temp_reg, int temp_reg2) {
+    fprintf(OUTPUT, "lw $t%d, ($t%d)\n", temp_reg, temp_reg2);
+}
+
+void mips_sw_temp_regs(int temp_reg, int temp_reg2) {
+    fprintf(OUTPUT, "sw $t%d, ($t%d)\n", temp_reg, temp_reg2);
+}
+
+void mips_mul_temp_reg_imm(int temp_reg, int imm) {
+    fprintf(OUTPUT, "mul $t%d, $t%d, %d\n", temp_reg, temp_reg, imm);
+}
+
+void mips_exit_syscall() {
+    fprintf(OUTPUT,
+        "li $v0, 10\n"
+        "syscall\n"
+    );
+}
+
 void mips_return(int ret_value_temp_reg, int stack_offset)
 {
     fprintf(OUTPUT,
