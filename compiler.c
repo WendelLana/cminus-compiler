@@ -150,6 +150,7 @@ static void compile_node(ast_node_t* node)
       IS_FUNC_MAIN = false;
       if(strncmp(node->attr.name, "main", 4) == 0) {
         IS_FUNC_MAIN = true;
+        mips_move_sp_to_fp();
       }
       else {
         mips_setup_stack_frame();

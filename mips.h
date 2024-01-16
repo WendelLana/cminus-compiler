@@ -6,6 +6,7 @@
 void mips_set_output_file(FILE* file);
 void mips_write_label(char* label_name);
 void mips_setup_stack_frame();
+void mips_move_sp_to_fp();
 void mips_push_func_arg(int arg_num);
 void mips_allocate_sub_stack(int offset);
 void mips_li_to_temp_reg(int temp_reg, int immediate);

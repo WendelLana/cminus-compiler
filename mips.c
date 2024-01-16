@@ -27,6 +27,10 @@ void mips_setup_stack_frame()
     );
 }
 
+void mips_move_sp_to_fp() {
+    fprintf(OUTPUT, "move $fp, $sp\n");
+}
+
 void mips_push_func_arg(int arg_num) {
     fprintf(OUTPUT,
         "sub $sp, $sp, 4\n"
