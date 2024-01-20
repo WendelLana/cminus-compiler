@@ -40,15 +40,6 @@ static int CURR_FUNC_IF_BRANCH_ID = 0;
 static int CURR_FUNC_WHILE_BRANCH_ID = 0;
 static id_list_node* ID_LIST_HEAD = NULL;
 
-// FIXME
-void temp_print_id_list() {
-  id_list_node* node = ID_LIST_HEAD;
-  while(node != NULL) {
-    printf("%s %d\n", node->id, node->offset);
-    node = node->next;
-  }
-}
-
 int main()
 {
     yyparse();
@@ -62,7 +53,6 @@ int main()
     mips_unconditional_jmp("main");
     write_empty_line();
     traverse_ast_and_compile(ast_head);
-    temp_print_id_list();
     fclose(PRG_FILE);
 
     return 0;
@@ -82,8 +72,6 @@ static void traverse_ast_and_compile(ast_node_t* node)
 
 static void compile_node(ast_node_t* node)
 {
-  printf("type:%d line:%d\n", node->type, node->line_num);
-
   if(node->if_label != NULL && node->type != CALC_NODE) {
     if(node->if_end_label != NULL) {
       mips_unconditional_jmp(node->if_end_label);
